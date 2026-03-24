@@ -1,0 +1,2204 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Band Flow Timer</title>
+  <style>
+    :root {
+      --bg: #061016;
+      --panel: rgba(10, 18, 24, 0.92);
+      --panel-soft: rgba(255, 255, 255, 0.03);
+      --line: rgba(255, 255, 255, 0.08);
+      --line-strong: rgba(255, 255, 255, 0.14);
+      --text: #f2f7f4;
+      --muted: #94a8ac;
+      --active-accent: #a8f05f;
+      --success: #a8f05f;
+      --warning: #ffbb55;
+      --info: #6fdfff;
+      --cool: #55dfc0;
+      --shadow: 0 28px 70px rgba(0, 0, 0, 0.38);
+      --radius-xl: 32px;
+      --radius-lg: 20px;
+      --radius-md: 15px;
+      --ring-track: rgba(255, 255, 255, 0.08);
+      --silhouette-color: rgba(255, 255, 255, 0.9);
+      --card-size: min(94vw, 720px, 94svh);
+    }
+
+    * {
+      box-sizing: border-box;
+    }
+
+    html,
+    body {
+      margin: 0;
+      min-height: 100%;
+      background:
+        radial-gradient(circle at 18% 16%, rgba(111, 223, 255, 0.18), transparent 30%),
+        radial-gradient(circle at 82% 10%, rgba(168, 240, 95, 0.14), transparent 28%),
+        radial-gradient(circle at 50% 110%, rgba(85, 223, 192, 0.14), transparent 35%),
+        linear-gradient(145deg, #04090d 0%, var(--bg) 48%, #09141a 100%);
+      color: var(--text);
+      font-family: "Aptos", "Segoe UI Variable", "Segoe UI", sans-serif;
+    }
+
+    body {
+      min-height: 100svh;
+      display: grid;
+      place-items: center;
+      padding: 18px;
+    }
+
+    body::before {
+      content: "";
+      position: fixed;
+      inset: 0;
+      pointer-events: none;
+      background-image:
+        linear-gradient(rgba(255, 255, 255, 0.02) 1px, transparent 1px),
+        linear-gradient(90deg, rgba(255, 255, 255, 0.02) 1px, transparent 1px);
+      background-size: 40px 40px;
+      mask-image: radial-gradient(circle at center, black 38%, transparent 100%);
+      opacity: 0.3;
+    }
+
+    .app-card {
+      width: var(--card-size);
+      height: var(--card-size);
+      border: 1px solid var(--line);
+      border-radius: var(--radius-xl);
+      background: linear-gradient(180deg, rgba(11, 20, 26, 0.96) 0%, rgba(7, 14, 19, 0.92) 100%);
+      backdrop-filter: blur(18px);
+      box-shadow: var(--shadow);
+      overflow: hidden;
+      display: grid;
+      grid-template-rows: auto 1fr;
+      position: relative;
+      z-index: 1;
+    }
+
+    .card-header {
+      padding: 16px 16px 12px;
+      border-bottom: 1px solid var(--line);
+      display: grid;
+      gap: 12px;
+      background: rgba(255, 255, 255, 0.015);
+    }
+
+    .tabs {
+      display: grid;
+      grid-template-columns: repeat(3, 1fr);
+      gap: 8px;
+    }
+
+    .tab-btn,
+    .action-btn,
+    .calendar-close {
+      appearance: none;
+      border: 0;
+      border-radius: 14px;
+      font: inherit;
+      font-weight: 700;
+      cursor: pointer;
+      transition: transform 0.2s ease, background 0.2s ease, box-shadow 0.2s ease, opacity 0.2s ease;
+    }
+
+    .tab-btn:hover:not(:disabled),
+    .action-btn:hover:not(:disabled),
+    .calendar-close:hover:not(:disabled) {
+      transform: translateY(-1px);
+    }
+
+    .tab-btn:active:not(:disabled),
+    .action-btn:active:not(:disabled),
+    .calendar-close:active:not(:disabled) {
+      transform: translateY(1px);
+    }
+
+    .tab-btn {
+      padding: 12px 10px;
+      background: rgba(255, 255, 255, 0.04);
+      color: var(--muted);
+      border: 1px solid rgba(255, 255, 255, 0.06);
+      letter-spacing: 0.08em;
+      text-transform: uppercase;
+      font-size: 0.8rem;
+    }
+
+    .tab-btn.active {
+      color: #08120d;
+      background: var(--active-accent);
+      border-color: transparent;
+      box-shadow: 0 12px 28px rgba(0, 0, 0, 0.2);
+    }
+
+    .toolbar {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      gap: 12px;
+    }
+
+    .brand {
+      min-width: 0;
+    }
+
+    .brand h1 {
+      margin: 0;
+      font-size: 0.94rem;
+      font-family: "Bahnschrift", "Arial Narrow", "Aptos", sans-serif;
+      letter-spacing: 0.08em;
+      text-transform: uppercase;
+    }
+
+    .brand p {
+      margin: 3px 0 0;
+      color: var(--muted);
+      font-size: 0.83rem;
+    }
+
+    .day-select-wrap {
+      display: grid;
+      gap: 6px;
+      min-width: 180px;
+    }
+
+    .day-select-wrap span,
+    .view-subtitle,
+    .summary-label,
+    .detail-line span,
+    .planner-row small,
+    .calendar-stats,
+    .calendar-legend,
+    .popup-field span,
+    .timer-meta {
+      color: var(--muted);
+    }
+
+    .day-select-wrap span {
+      font-size: 0.72rem;
+      letter-spacing: 0.08em;
+      text-transform: uppercase;
+      text-align: right;
+    }
+
+    select {
+      width: 100%;
+      padding: 12px 14px;
+      border-radius: 14px;
+      border: 1px solid var(--line-strong);
+      background: rgba(8, 15, 20, 0.95);
+      color: var(--text);
+      font: inherit;
+      outline: none;
+      box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.04);
+    }
+
+    select:focus {
+      border-color: var(--active-accent);
+      box-shadow: 0 0 0 3px rgba(168, 240, 95, 0.16);
+    }
+
+    .card-body {
+      position: relative;
+      min-height: 0;
+    }
+
+    .view {
+      position: absolute;
+      inset: 0;
+      display: none;
+      padding: 18px 20px 20px;
+      overflow: auto;
+    }
+
+    .view.active {
+      display: block;
+    }
+
+    .timer-view.active {
+      display: block;
+    }
+
+    .planner-view.active,
+    .calendar-view.active {
+      display: grid;
+    }
+
+    .timer-view-inner {
+      height: 100%;
+      display: grid;
+      align-content: space-between;
+      justify-items: center;
+      gap: 16px;
+    }
+
+    .phase-chip {
+      padding: 8px 14px;
+      border-radius: 999px;
+      font-size: 0.78rem;
+      font-weight: 700;
+      letter-spacing: 0.1em;
+      text-transform: uppercase;
+      color: var(--active-accent);
+      background: rgba(255, 255, 255, 0.04);
+      border: 1px solid rgba(255, 255, 255, 0.08);
+    }
+
+    .countdown-wrap {
+      width: min(100%, 390px);
+      aspect-ratio: 1 / 1;
+      position: relative;
+      display: grid;
+      place-items: center;
+      margin-inline: auto;
+    }
+
+    .silhouette-stage {
+      position: absolute;
+      inset: 0;
+      display: grid;
+      place-items: center;
+      pointer-events: none;
+    }
+
+    .silhouette-layer {
+      position: absolute;
+      width: min(58%, 240px);
+      aspect-ratio: 1 / 1;
+      color: var(--silhouette-color);
+      opacity: 0;
+      filter: blur(2px);
+      transition: opacity 0.6s ease;
+      animation: drift 8s ease-in-out infinite;
+    }
+
+    .silhouette-layer.active {
+      opacity: 0.13;
+    }
+
+    .silhouette-layer svg {
+      width: 100%;
+      height: 100%;
+      display: block;
+    }
+
+    @keyframes drift {
+      0%,
+      100% {
+        transform: translateY(0) scale(1);
+      }
+      50% {
+        transform: translateY(-8px) scale(1.02);
+      }
+    }
+
+    .progress-ring {
+      width: 100%;
+      height: 100%;
+      transform: rotate(-90deg);
+      overflow: visible;
+    }
+
+    .progress-ring__track,
+    .progress-ring__glow,
+    .progress-ring__fill {
+      fill: none;
+      stroke-linecap: round;
+      stroke-dasharray: 973.89;
+      stroke-dashoffset: 973.89;
+      transition: stroke-dashoffset 0.12s linear, stroke 0.25s ease;
+    }
+
+    .progress-ring__track {
+      stroke: var(--ring-track);
+      stroke-dashoffset: 0;
+    }
+
+    .progress-ring__glow {
+      stroke: var(--active-accent);
+      stroke-width: 16;
+      opacity: 0.22;
+      filter: drop-shadow(0 0 22px rgba(168, 240, 95, 0.35));
+    }
+
+    .progress-ring__fill {
+      stroke: var(--active-accent);
+      stroke-width: 12;
+    }
+
+    .timer-core {
+      position: absolute;
+      inset: 18%;
+      display: grid;
+      align-content: center;
+      justify-items: center;
+      text-align: center;
+      gap: 10px;
+      padding: 8px;
+    }
+
+    .timer-meta {
+      font-size: 0.8rem;
+      letter-spacing: 0.08em;
+      text-transform: uppercase;
+    }
+
+    .exercise-name {
+      margin: 0;
+      font-family: "Bahnschrift", "Arial Narrow", "Aptos", sans-serif;
+      font-weight: 700;
+      letter-spacing: 0.02em;
+      font-size: clamp(1.5rem, 4.4vw, 2.6rem);
+      line-height: 1.06;
+      max-width: 11ch;
+      text-wrap: balance;
+    }
+
+    .time-readout {
+      font-family: "Bahnschrift", "Segoe UI Variable", monospace;
+      font-weight: 700;
+      font-size: clamp(2.8rem, 9vw, 5.3rem);
+      line-height: 0.95;
+      letter-spacing: 0.03em;
+      font-variant-numeric: tabular-nums;
+    }
+
+    .timer-details {
+      width: 100%;
+      display: grid;
+      gap: 10px;
+    }
+
+    .detail-line {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      gap: 14px;
+      padding: 12px 14px;
+      border-radius: 14px;
+      background: rgba(255, 255, 255, 0.03);
+      border: 1px solid rgba(255, 255, 255, 0.06);
+    }
+
+    .detail-line span {
+      font-size: 0.78rem;
+      letter-spacing: 0.08em;
+      text-transform: uppercase;
+    }
+
+    .detail-line strong {
+      font-size: 0.98rem;
+      text-align: right;
+      text-wrap: balance;
+    }
+
+    .button-row {
+      width: 100%;
+      display: flex;
+      gap: 12px;
+    }
+
+    .action-btn {
+      flex: 1;
+      padding: 14px 16px;
+    }
+
+    .primary-btn {
+      color: #08120d;
+      background: linear-gradient(135deg, var(--active-accent), #7ecb46);
+      box-shadow: 0 14px 36px rgba(0, 0, 0, 0.24);
+    }
+
+    .secondary-btn,
+    .calendar-close {
+      color: var(--text);
+      background: rgba(255, 255, 255, 0.05);
+      border: 1px solid rgba(255, 255, 255, 0.08);
+    }
+
+    .action-btn:disabled,
+    .calendar-close:disabled {
+      opacity: 0.45;
+      cursor: not-allowed;
+    }
+
+    .rest-message,
+    .empty-copy,
+    .planner-note {
+      margin: 0;
+      text-align: center;
+      color: var(--muted);
+      line-height: 1.6;
+      font-size: 0.95rem;
+    }
+
+    .planner-view {
+      grid-template-rows: auto 1fr auto;
+      gap: 14px;
+    }
+
+    .calendar-view {
+     grid-template-rows: auto auto minmax(0, 1fr);
+     gap: 12px;
+     position: relative;
+     min-height: 0;
+    }
+
+
+    .view-head {
+      display: grid;
+      gap: 8px;
+    }
+
+    .view-title {
+      margin: 0;
+      font-family: "Bahnschrift", "Arial Narrow", "Aptos", sans-serif;
+      font-size: 0.9rem;
+      letter-spacing: 0.08em;
+      text-transform: uppercase;
+    }
+
+    .view-subtitle {
+      font-size: 0.92rem;
+      line-height: 1.4;
+    }
+
+    .planner-summary {
+      display: grid;
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+      gap: 10px;
+    }
+
+    .summary-card,
+    .popup-field {
+      padding: 12px 14px;
+      border-radius: 14px;
+      background: rgba(255, 255, 255, 0.03);
+      border: 1px solid rgba(255, 255, 255, 0.06);
+    }
+
+    .summary-card {
+      display: grid;
+      gap: 6px;
+    }
+
+    .summary-label {
+      font-size: 0.72rem;
+      letter-spacing: 0.08em;
+      text-transform: uppercase;
+    }
+
+    .summary-card strong {
+      font-size: 1rem;
+    }
+
+    .planner-list {
+      min-height: 0;
+      overflow: auto;
+      display: grid;
+      gap: 10px;
+      padding-right: 2px;
+    }
+
+    .planner-row {
+      display: grid;
+      grid-template-columns: minmax(0, 1fr) 104px;
+      gap: 10px;
+      align-items: center;
+      padding: 12px 14px;
+      border-radius: 16px;
+      background: rgba(255, 255, 255, 0.025);
+      border: 1px solid rgba(255, 255, 255, 0.06);
+    }
+
+    .planner-row strong {
+      display: block;
+      font-size: 0.98rem;
+      line-height: 1.25;
+      margin-bottom: 5px;
+      text-wrap: balance;
+    }
+
+    .planner-row small {
+      line-height: 1.35;
+      font-size: 0.82rem;
+    }
+
+    .planner-select {
+      text-align: center;
+      padding: 11px 10px;
+    }
+
+    .calendar-head {
+      display: grid;
+      gap: 8px;
+    }
+
+    .calendar-month {
+      margin: 0;
+      font-family: "Bahnschrift", "Arial Narrow", "Aptos", sans-serif;
+      font-size: 1rem;
+      letter-spacing: 0.08em;
+      text-transform: uppercase;
+    }
+
+    .calendar-stats,
+    .calendar-legend {
+      font-size: 0.84rem;
+      line-height: 1.4;
+    }
+
+    .calendar-legend {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 10px 14px;
+    }
+
+    .legend-item {
+      display: inline-flex;
+      align-items: center;
+      gap: 8px;
+    }
+
+    .legend-dot {
+      width: 10px;
+      height: 10px;
+      border-radius: 999px;
+      display: inline-block;
+    }
+
+    .legend-dot.green {
+      background: var(--success);
+    }
+
+    .legend-dot.yellow {
+      background: var(--warning);
+    }
+
+    .weekdays,
+    .calendar-grid {
+      display: grid;
+      grid-template-columns: repeat(7, minmax(0, 1fr));
+      gap: 8px;
+    }
+
+    .weekdays span {
+      text-align: center;
+      font-size: 0.72rem;
+      letter-spacing: 0.08em;
+      text-transform: uppercase;
+      color: var(--muted);
+    }
+
+   .calendar-grid {
+     align-content: start;
+     min-height: 0;
+     overflow-y: auto;
+     padding-right: 4px;
+     padding-bottom: 6px;
+    }
+
+
+    .calendar-spacer,
+    .calendar-day {
+      aspect-ratio: 1 / 1;
+      border-radius: 14px;
+    }
+
+    .calendar-day {
+      position: relative;
+      border: 1px solid rgba(255, 255, 255, 0.06);
+      background: rgba(255, 255, 255, 0.02);
+      padding: 9px;
+      cursor: pointer;
+      display: grid;
+      align-content: space-between;
+      transition: transform 0.18s ease, border-color 0.18s ease, background 0.18s ease;
+      outline: none;
+    }
+
+    .calendar-day:hover,
+    .calendar-day:focus-visible {
+      transform: translateY(-1px);
+      border-color: rgba(255, 255, 255, 0.13);
+      background: rgba(255, 255, 255, 0.035);
+    }
+
+    .calendar-day.is-today {
+      border-color: rgba(111, 223, 255, 0.48);
+      box-shadow: inset 0 0 0 1px rgba(111, 223, 255, 0.2);
+    }
+
+    .calendar-day.is-selected {
+      border-color: rgba(255, 255, 255, 0.22);
+    }
+
+    .calendar-day.has-full .day-dot {
+      background: var(--success);
+      opacity: 1;
+    }
+
+    .calendar-day.has-partial .day-dot {
+      background: var(--warning);
+      opacity: 1;
+    }
+
+    .day-number {
+      font-size: 0.9rem;
+      font-weight: 700;
+      line-height: 1;
+    }
+
+    .day-dot {
+      width: 10px;
+      height: 10px;
+      border-radius: 999px;
+      justify-self: end;
+      opacity: 0;
+    }
+
+    .calendar-popup {
+      position: absolute;
+      left: 20px;
+      right: 20px;
+      bottom: 20px;
+      padding: 14px;
+      border-radius: 18px;
+      background: rgba(6, 12, 16, 0.96);
+      border: 1px solid rgba(255, 255, 255, 0.09);
+      box-shadow: 0 18px 40px rgba(0, 0, 0, 0.34);
+      display: grid;
+      gap: 12px;
+      z-index: 4;
+    }
+
+    .calendar-popup[hidden] {
+      display: none;
+    }
+
+    .popup-top {
+      display: flex;
+      justify-content: space-between;
+      gap: 12px;
+      align-items: start;
+    }
+
+    .popup-date {
+      font-weight: 700;
+      line-height: 1.3;
+      text-wrap: balance;
+    }
+
+    .calendar-close {
+      padding: 8px 10px;
+      border-radius: 12px;
+      font-size: 0.82rem;
+      white-space: nowrap;
+    }
+
+    .popup-grid {
+      display: grid;
+      grid-template-columns: repeat(3, minmax(0, 1fr));
+      gap: 10px;
+    }
+
+    .popup-field span {
+      display: block;
+      font-size: 0.72rem;
+      letter-spacing: 0.08em;
+      text-transform: uppercase;
+      margin-bottom: 6px;
+    }
+
+    .popup-field strong {
+      display: block;
+      font-size: 0.92rem;
+      line-height: 1.35;
+      text-wrap: balance;
+    }
+
+    .popup-status,
+    .popup-extra {
+      color: var(--muted);
+      font-size: 0.84rem;
+      line-height: 1.45;
+    }
+
+    @media (max-width: 640px) {
+      .card-header {
+        padding: 14px 14px 12px;
+      }
+
+      .toolbar {
+        align-items: end;
+      }
+
+      .brand p {
+        font-size: 0.76rem;
+      }
+
+      .day-select-wrap {
+        min-width: 142px;
+      }
+
+      .view {
+        padding: 16px;
+      }
+
+      .countdown-wrap {
+        width: min(100%, 300px);
+      }
+
+      .timer-core {
+        inset: 17%;
+      }
+
+      .button-row {
+        flex-direction: column;
+      }
+
+      .planner-row {
+        grid-template-columns: 1fr;
+      }
+
+      .popup-grid {
+        grid-template-columns: 1fr;
+      }
+    }
+  </style>
+</head>
+<body>
+  <main class="app-card">
+    <header class="card-header">
+      <nav class="tabs" aria-label="App tabs">
+        <button class="tab-btn active" type="button" data-view="timer">Timer</button>
+        <button class="tab-btn" type="button" data-view="planner">Planner</button>
+        <button class="tab-btn" type="button" data-view="calendar">Calendar</button>
+      </nav>
+
+      <div class="toolbar">
+        <div class="brand">
+          <h1>Band Flow</h1>
+          <p>Offline resistance workout timer</p>
+        </div>
+
+        <label class="day-select-wrap">
+          <span>Workout Day</span>
+          <select id="daySelect" aria-label="Select workout day"></select>
+        </label>
+      </div>
+    </header>
+
+    <div class="card-body">
+      <section class="view timer-view active" id="timerView">
+        <div class="timer-view-inner">
+          <div class="phase-chip" id="phaseChip">Warmup</div>
+
+          <div class="countdown-wrap">
+            <div class="silhouette-stage" aria-hidden="true">
+              <div class="silhouette-layer active" id="silhouetteA"></div>
+              <div class="silhouette-layer" id="silhouetteB"></div>
+            </div>
+
+            <svg class="progress-ring" viewBox="0 0 360 360" aria-hidden="true">
+              <circle class="progress-ring__track" cx="180" cy="180" r="155" stroke-width="12"></circle>
+              <circle class="progress-ring__glow" id="progressGlow" cx="180" cy="180" r="155"></circle>
+              <circle class="progress-ring__fill" id="progressFill" cx="180" cy="180" r="155"></circle>
+            </svg>
+
+            <div class="timer-core">
+              <div class="timer-meta" id="segmentMeta">Wake up the body</div>
+              <h2 class="exercise-name" id="exerciseName">Warmup</h2>
+              <div class="time-readout" id="timeReadout">05:00</div>
+            </div>
+          </div>
+
+          <div class="timer-details">
+            <div class="detail-line">
+              <span>Next</span>
+              <strong id="nextExercise">Band Squats · Set 1</strong>
+            </div>
+            <div class="detail-line">
+              <span>Segment</span>
+              <strong id="segmentCount">1 / 20</strong>
+            </div>
+            <div class="detail-line">
+              <span>Total Left</span>
+              <strong id="totalRemaining">24:05</strong>
+            </div>
+          </div>
+
+          <div class="button-row">
+            <button class="action-btn primary-btn" id="startPauseBtn" type="button">Start</button>
+            <button class="action-btn secondary-btn" id="resetBtn" type="button">Reset</button>
+          </div>
+
+          <p class="rest-message" id="restMessage" hidden>
+            Recovery day. Hydrate, loosen up, and come back ready for the next band session.
+          </p>
+        </div>
+      </section>
+
+      <section class="view planner-view" id="plannerView">
+        <div class="view-head">
+          <h2 class="view-title">Planner</h2>
+          <div class="view-subtitle" id="plannerDayTitle">Day 1 - Glutes + Legs</div>
+
+          <div class="planner-summary">
+            <div class="summary-card">
+              <span class="summary-label">Total Time</span>
+              <strong id="plannerTotalTime">00:00</strong>
+            </div>
+            <div class="summary-card">
+              <span class="summary-label">Segments</span>
+              <strong id="plannerSegments">0</strong>
+            </div>
+          </div>
+        </div>
+
+        <div class="planner-list" id="plannerList"></div>
+
+        <p class="planner-note" id="plannerNote">
+          Skip removes an exercise from the timer. Changes update the workout immediately.
+        </p>
+      </section>
+
+      <section class="view calendar-view" id="calendarView">
+        <div class="calendar-head">
+          <h2 class="calendar-month" id="calendarMonthLabel">This Month</h2>
+          <div class="calendar-stats" id="calendarStats">0 workouts · 0 min · 0% complete</div>
+          <div class="calendar-legend">
+            <span class="legend-item"><span class="legend-dot green"></span> Completed</span>
+            <span class="legend-item"><span class="legend-dot yellow"></span> Stopped early</span>
+          </div>
+        </div>
+
+        <div class="weekdays" aria-hidden="true">
+          <span>Mon</span>
+          <span>Tue</span>
+          <span>Wed</span>
+          <span>Thu</span>
+          <span>Fri</span>
+          <span>Sat</span>
+          <span>Sun</span>
+        </div>
+
+        <div class="calendar-grid" id="calendarGrid" aria-label="Workout calendar"></div>
+
+        <div class="calendar-popup" id="calendarPopup" hidden>
+          <div class="popup-top">
+            <div class="popup-date" id="popupDate"></div>
+            <button class="calendar-close" id="popupCloseBtn" type="button">Close</button>
+          </div>
+
+          <div class="popup-grid">
+            <div class="popup-field">
+              <span>Workout Day</span>
+              <strong id="popupWorkoutDay">-</strong>
+            </div>
+            <div class="popup-field">
+              <span>Minutes</span>
+              <strong id="popupMinutes">0</strong>
+            </div>
+            <div class="popup-field">
+              <span>Sets</span>
+              <strong id="popupSets">0 / 0</strong>
+            </div>
+          </div>
+
+          <div class="popup-status" id="popupStatus">No workout logged.</div>
+          <div class="popup-extra" id="popupExtra"></div>
+        </div>
+      </section>
+    </div>
+  </main>
+
+  <script>
+    const WARMUP_SECONDS = 5 * 60;
+    const STRETCH_SECONDS = 3 * 60;
+    const REST_SECONDS = 30;
+    const RING_CIRCUMFERENCE = 973.89;
+    const MAX_CUSTOM_SETS = 3;
+
+    const REP_TO_SECONDS = {
+      8: 30,
+      10: 35,
+      12: 40,
+      15: 45,
+      20: 50
+    };
+
+    const STORAGE_KEYS = {
+      history: "band-flow-history-v3",
+      selectedDay: "band-flow-selected-day-v3",
+      setPrefs: "band-flow-set-preferences-v3"
+    };
+
+    const DAY_THREE_EXERCISES = [
+      { name: "Plank", sets: 3, seconds: 20 },
+      { name: "Leg Raises", sets: 3, reps: 12 },
+      { name: "Russian Twist", sets: 3, reps: 20 },
+      { name: "Mountain Climbers", sets: 3, reps: 20 }
+    ];
+
+    const WORKOUT_DAYS = {
+      "1": {
+        id: "1",
+        label: "Day 1 - Glutes + Legs",
+        exercises: [
+          { name: "Band Squats", sets: 3, reps: 12 },
+          { name: "Glute Bridge", sets: 3, reps: 15 },
+          { name: "Band Kickbacks Right", sets: 3, reps: 12 },
+          { name: "Band Kickbacks Left", sets: 3, reps: 12 },
+          { name: "Reverse Lunges Right", sets: 2, reps: 10 },
+          { name: "Reverse Lunges Left", sets: 2, reps: 10 },
+          { name: "Squat Hold", sets: 1, seconds: 30 }
+        ]
+      },
+      "2": {
+        id: "2",
+        label: "Day 2 - Arms + Chest",
+        exercises: [
+          { name: "Band Bicep Curl", sets: 3, reps: 12 },
+          { name: "Chair Dips", sets: 3, reps: 10 },
+          { name: "Knee Pushups", sets: 3, reps: 8 },
+          { name: "Band Chest Press", sets: 3, reps: 12 }
+        ]
+      },
+      "3": {
+        id: "3",
+        label: "Day 3 - Core",
+        exercises: DAY_THREE_EXERCISES.map(function (exercise) {
+          return Object.assign({}, exercise);
+        })
+      },
+      "4": {
+        id: "4",
+        label: "Day 4 - Booty + Legs",
+        exercises: [
+          { name: "Hip Thrust", sets: 3, reps: 12 },
+          { name: "Sumo Squats", sets: 3, reps: 12 },
+          { name: "Band Side Walk", sets: 3, steps: 15 },
+          { name: "Lunges Right", sets: 2, reps: 10 },
+          { name: "Lunges Left", sets: 2, reps: 10 }
+        ]
+      },
+      "5": {
+        id: "5",
+        label: "Day 5 - Arms + Posture",
+        exercises: [
+          { name: "Shoulder Press", sets: 3, reps: 12 },
+          { name: "Lateral Raise", sets: 3, reps: 12 },
+          { name: "Band Rows", sets: 3, reps: 12 },
+          { name: "Wall Pushups", sets: 2, reps: 12 }
+        ]
+      },
+      "6": {
+        id: "6",
+        label: "Day 6 - Core Slow",
+        exercises: DAY_THREE_EXERCISES.map(function (exercise) {
+          return Object.assign({}, exercise, { extraSeconds: 10 });
+        })
+      },
+      "7": {
+        id: "7",
+        label: "Day 7 - Rest Day",
+        restDay: true,
+        exercises: []
+      }
+    };
+
+    const SILHOUETTES = {
+      warmup: `
+        <svg viewBox="0 0 240 240" xmlns="http://www.w3.org/2000/svg">
+          <g fill="none" stroke="currentColor" stroke-width="12" stroke-linecap="round" stroke-linejoin="round">
+            <circle cx="120" cy="42" r="18"></circle>
+            <path d="M120 60 L120 116"></path>
+            <path d="M120 80 L78 54"></path>
+            <path d="M120 80 L162 54"></path>
+            <path d="M120 116 L94 170"></path>
+            <path d="M120 116 L146 170"></path>
+            <path d="M94 170 L84 202"></path>
+            <path d="M146 170 L156 202"></path>
+          </g>
+        </svg>
+      `,
+      squat: `
+        <svg viewBox="0 0 240 240" xmlns="http://www.w3.org/2000/svg">
+          <g fill="none" stroke="currentColor" stroke-width="12" stroke-linecap="round" stroke-linejoin="round">
+            <circle cx="120" cy="40" r="18"></circle>
+            <path d="M120 58 L120 96"></path>
+            <path d="M120 74 L82 98"></path>
+            <path d="M120 74 L158 98"></path>
+            <path d="M120 96 L90 128"></path>
+            <path d="M120 96 L152 128"></path>
+            <path d="M90 128 L92 174"></path>
+            <path d="M152 128 L150 174"></path>
+            <path d="M92 174 L66 174"></path>
+            <path d="M150 174 L176 174"></path>
+          </g>
+        </svg>
+      `,
+      bridge: `
+        <svg viewBox="0 0 240 240" xmlns="http://www.w3.org/2000/svg">
+          <g fill="none" stroke="currentColor" stroke-width="12" stroke-linecap="round" stroke-linejoin="round">
+            <circle cx="64" cy="136" r="16"></circle>
+            <path d="M80 136 L110 112 L152 112 L188 142"></path>
+            <path d="M188 142 L202 174"></path>
+            <path d="M110 112 L96 168"></path>
+            <path d="M96 168 L70 188"></path>
+          </g>
+        </svg>
+      `,
+      lunge: `
+        <svg viewBox="0 0 240 240" xmlns="http://www.w3.org/2000/svg">
+          <g fill="none" stroke="currentColor" stroke-width="12" stroke-linecap="round" stroke-linejoin="round">
+            <circle cx="108" cy="40" r="18"></circle>
+            <path d="M108 58 L122 108"></path>
+            <path d="M122 82 L82 108"></path>
+            <path d="M122 82 L164 94"></path>
+            <path d="M122 108 L90 152"></path>
+            <path d="M90 152 L60 186"></path>
+            <path d="M122 108 L156 150"></path>
+            <path d="M156 150 L194 150"></path>
+          </g>
+        </svg>
+      `,
+      kickback: `
+        <svg viewBox="0 0 240 240" xmlns="http://www.w3.org/2000/svg">
+          <g fill="none" stroke="currentColor" stroke-width="12" stroke-linecap="round" stroke-linejoin="round">
+            <circle cx="118" cy="42" r="18"></circle>
+            <path d="M118 60 L128 104"></path>
+            <path d="M128 80 L88 104"></path>
+            <path d="M128 80 L164 72"></path>
+            <path d="M128 104 L104 150"></path>
+            <path d="M104 150 L92 194"></path>
+            <path d="M128 104 L170 128"></path>
+            <path d="M170 128 L202 104"></path>
+          </g>
+        </svg>
+      `,
+      pushup: `
+        <svg viewBox="0 0 240 240" xmlns="http://www.w3.org/2000/svg">
+          <g fill="none" stroke="currentColor" stroke-width="12" stroke-linecap="round" stroke-linejoin="round">
+            <circle cx="70" cy="126" r="16"></circle>
+            <path d="M86 126 L136 122 L176 130"></path>
+            <path d="M116 124 L108 172"></path>
+            <path d="M162 126 L154 174"></path>
+            <path d="M176 130 L208 168"></path>
+          </g>
+        </svg>
+      `,
+      plank: `
+        <svg viewBox="0 0 240 240" xmlns="http://www.w3.org/2000/svg">
+          <g fill="none" stroke="currentColor" stroke-width="12" stroke-linecap="round" stroke-linejoin="round">
+            <circle cx="64" cy="132" r="16"></circle>
+            <path d="M80 132 L132 122 L186 124"></path>
+            <path d="M112 126 L100 174"></path>
+            <path d="M170 124 L190 174"></path>
+          </g>
+        </svg>
+      `,
+      press: `
+        <svg viewBox="0 0 240 240" xmlns="http://www.w3.org/2000/svg">
+          <g fill="none" stroke="currentColor" stroke-width="12" stroke-linecap="round" stroke-linejoin="round">
+            <circle cx="120" cy="42" r="18"></circle>
+            <path d="M120 60 L120 126"></path>
+            <path d="M120 88 L84 112"></path>
+            <path d="M120 88 L156 112"></path>
+            <path d="M84 112 L84 66"></path>
+            <path d="M156 112 L156 66"></path>
+            <path d="M70 66 L98 66"></path>
+            <path d="M142 66 L170 66"></path>
+            <path d="M120 126 L96 176"></path>
+            <path d="M120 126 L144 176"></path>
+          </g>
+        </svg>
+      `,
+      row: `
+        <svg viewBox="0 0 240 240" xmlns="http://www.w3.org/2000/svg">
+          <g fill="none" stroke="currentColor" stroke-width="12" stroke-linecap="round" stroke-linejoin="round">
+            <circle cx="118" cy="42" r="18"></circle>
+            <path d="M118 60 L130 112"></path>
+            <path d="M130 82 L168 74"></path>
+            <path d="M130 82 L92 94"></path>
+            <path d="M168 74 L188 98"></path>
+            <path d="M92 94 L62 116"></path>
+            <path d="M130 112 L104 166"></path>
+            <path d="M130 112 L152 168"></path>
+          </g>
+        </svg>
+      `,
+      core: `
+        <svg viewBox="0 0 240 240" xmlns="http://www.w3.org/2000/svg">
+          <g fill="none" stroke="currentColor" stroke-width="12" stroke-linecap="round" stroke-linejoin="round">
+            <circle cx="82" cy="104" r="16"></circle>
+            <path d="M96 112 L122 132 L152 122"></path>
+            <path d="M152 122 L174 98"></path>
+            <path d="M122 132 L112 174"></path>
+            <path d="M122 132 L154 168"></path>
+          </g>
+        </svg>
+      `,
+      stretch: `
+        <svg viewBox="0 0 240 240" xmlns="http://www.w3.org/2000/svg">
+          <g fill="none" stroke="currentColor" stroke-width="12" stroke-linecap="round" stroke-linejoin="round">
+            <circle cx="122" cy="42" r="18"></circle>
+            <path d="M122 60 L122 122"></path>
+            <path d="M122 82 L78 76"></path>
+            <path d="M122 82 L166 64"></path>
+            <path d="M122 122 L98 176"></path>
+            <path d="M122 122 L150 176"></path>
+          </g>
+        </svg>
+      `
+    };
+
+    const PHASE_STYLES = {
+      warmup: { label: "Warmup", accent: "#6fdfff" },
+      work: { label: "Exercise", accent: "#a8f05f" },
+      rest: { label: "Rest", accent: "#ffbb55" },
+      stretch: { label: "Stretch", accent: "#55dfc0" },
+      complete: { label: "Complete", accent: "#a8f05f" },
+      dayoff: { label: "Rest Day", accent: "#95a4aa" }
+    };
+
+    function loadSetPreferences() {
+      try {
+        const raw = localStorage.getItem(STORAGE_KEYS.setPrefs);
+        const parsed = raw ? JSON.parse(raw) : {};
+        return parsed && typeof parsed === "object" ? parsed : {};
+      } catch (error) {
+        return {};
+      }
+    }
+
+    const state = {
+      activeView: "timer",
+      selectedDayId: localStorage.getItem(STORAGE_KEYS.selectedDay) || "1",
+      schedule: null,
+      activeIndex: 0,
+      segmentRemainingMs: 0,
+      segmentEndTimestamp: 0,
+      isRunning: false,
+      hasStarted: false,
+      workoutComplete: false,
+      sessionSaved: false,
+      timerHandle: null,
+      audioContext: null,
+      silhouetteSlot: 0,
+      activeSilhouetteKey: "",
+      setPreferences: loadSetPreferences(),
+      calendarLookup: {},
+      openCalendarDate: null
+    };
+
+    const elements = {
+      tabButtons: document.querySelectorAll(".tab-btn"),
+      daySelect: document.getElementById("daySelect"),
+      views: {
+        timer: document.getElementById("timerView"),
+        planner: document.getElementById("plannerView"),
+        calendar: document.getElementById("calendarView")
+      },
+      timerCard: document.querySelector(".app-card"),
+      phaseChip: document.getElementById("phaseChip"),
+      segmentMeta: document.getElementById("segmentMeta"),
+      exerciseName: document.getElementById("exerciseName"),
+      timeReadout: document.getElementById("timeReadout"),
+      nextExercise: document.getElementById("nextExercise"),
+      totalRemaining: document.getElementById("totalRemaining"),
+      segmentCount: document.getElementById("segmentCount"),
+      startPauseBtn: document.getElementById("startPauseBtn"),
+      resetBtn: document.getElementById("resetBtn"),
+      restMessage: document.getElementById("restMessage"),
+      progressFill: document.getElementById("progressFill"),
+      progressGlow: document.getElementById("progressGlow"),
+      silhouetteA: document.getElementById("silhouetteA"),
+      silhouetteB: document.getElementById("silhouetteB"),
+      plannerDayTitle: document.getElementById("plannerDayTitle"),
+      plannerTotalTime: document.getElementById("plannerTotalTime"),
+      plannerSegments: document.getElementById("plannerSegments"),
+      plannerList: document.getElementById("plannerList"),
+      plannerNote: document.getElementById("plannerNote"),
+      calendarMonthLabel: document.getElementById("calendarMonthLabel"),
+      calendarStats: document.getElementById("calendarStats"),
+      calendarGrid: document.getElementById("calendarGrid"),
+      calendarPopup: document.getElementById("calendarPopup"),
+      popupDate: document.getElementById("popupDate"),
+      popupWorkoutDay: document.getElementById("popupWorkoutDay"),
+      popupMinutes: document.getElementById("popupMinutes"),
+      popupSets: document.getElementById("popupSets"),
+      popupStatus: document.getElementById("popupStatus"),
+      popupExtra: document.getElementById("popupExtra"),
+      popupCloseBtn: document.getElementById("popupCloseBtn")
+    };
+
+    function clamp(value, min, max) {
+      return Math.min(max, Math.max(min, value));
+    }
+
+    function formatClock(totalSeconds) {
+      const safeSeconds = Math.max(0, Math.round(totalSeconds));
+      const minutes = Math.floor(safeSeconds / 60);
+      const seconds = safeSeconds % 60;
+      return String(minutes).padStart(2, "0") + ":" + String(seconds).padStart(2, "0");
+    }
+
+    function formatClockFromMs(milliseconds) {
+      return formatClock(milliseconds / 1000);
+    }
+
+    function formatMinutes(value) {
+      const rounded = Number(value.toFixed(1));
+      return Number.isInteger(rounded) ? String(rounded) : rounded.toFixed(1);
+    }
+
+    function formatDateKey(date) {
+      const year = date.getFullYear();
+      const month = String(date.getMonth() + 1).padStart(2, "0");
+      const day = String(date.getDate()).padStart(2, "0");
+      return year + "-" + month + "-" + day;
+    }
+
+    function parseDateKey(dateKey) {
+      const parts = dateKey.split("-").map(Number);
+      return new Date(parts[0], parts[1] - 1, parts[2]);
+    }
+
+    function getHistory() {
+      try {
+        const raw = localStorage.getItem(STORAGE_KEYS.history);
+        const parsed = raw ? JSON.parse(raw) : [];
+        return Array.isArray(parsed) ? parsed : [];
+      } catch (error) {
+        return [];
+      }
+    }
+
+    function saveHistory(history) {
+      localStorage.setItem(STORAGE_KEYS.history, JSON.stringify(history));
+    }
+
+    function saveSetPreferences() {
+      localStorage.setItem(STORAGE_KEYS.setPrefs, JSON.stringify(state.setPreferences));
+    }
+
+    function getExerciseDuration(exercise) {
+      const bonus = exercise.extraSeconds || 0;
+
+      if (typeof exercise.seconds === "number") {
+        return exercise.seconds + bonus;
+      }
+
+      const count = exercise.reps != null ? exercise.reps : exercise.steps;
+      return (REP_TO_SECONDS[count] || count || 0) + bonus;
+    }
+
+    function describeExercise(exercise) {
+      return getExerciseDuration(exercise) + " sec per set";
+    }
+
+    function getDaySetConfig(dayId) {
+      const config = state.setPreferences[dayId];
+      return config && typeof config === "object" ? config : {};
+    }
+
+    function getSelectedSetsForExercise(dayId, exercise) {
+      const config = getDaySetConfig(dayId);
+      const raw = Number(config[exercise.name]);
+
+      if (Number.isFinite(raw)) {
+        return clamp(Math.round(raw), 0, MAX_CUSTOM_SETS);
+      }
+
+      return clamp(exercise.sets, 0, MAX_CUSTOM_SETS);
+    }
+
+    function updateExerciseSetPreference(dayId, exerciseName, sets) {
+      if (!state.setPreferences[dayId] || typeof state.setPreferences[dayId] !== "object") {
+        state.setPreferences[dayId] = {};
+      }
+
+      state.setPreferences[dayId][exerciseName] = clamp(Math.round(sets), 0, MAX_CUSTOM_SETS);
+      saveSetPreferences();
+    }
+
+    function getSilhouetteKeyForName(name) {
+      const lower = name.toLowerCase();
+
+      if (lower.includes("squat")) return "squat";
+      if (lower.includes("bridge") || lower.includes("thrust")) return "bridge";
+      if (lower.includes("kickback")) return "kickback";
+      if (lower.includes("lunge")) return "lunge";
+      if (lower.includes("pushup") || lower.includes("dip")) return "pushup";
+      if (lower.includes("plank") || lower.includes("mountain")) return "plank";
+      if (lower.includes("press") || lower.includes("raise") || lower.includes("curl")) return "press";
+      if (lower.includes("row")) return "row";
+      if (lower.includes("twist") || lower.includes("leg raise")) return "core";
+
+      return "warmup";
+    }
+
+    function buildSchedule(dayId) {
+      const day = WORKOUT_DAYS[dayId];
+
+      if (!day || day.restDay) {
+        return {
+          day: day,
+          totalSeconds: 0,
+          totalSets: 0,
+          isRestDay: true,
+          segments: [],
+          selectedSetMap: {}
+        };
+      }
+
+      const segments = [
+        {
+          type: "warmup",
+          displayName: "Warmup",
+          duration: WARMUP_SECONDS,
+          meta: "Wake up the body",
+          silhouetteKey: "warmup"
+        }
+      ];
+
+      const selectedSetMap = {};
+      let totalSets = 0;
+
+      day.exercises.forEach(function (exercise) {
+        const chosenSets = getSelectedSetsForExercise(dayId, exercise);
+        const duration = getExerciseDuration(exercise);
+        const silhouetteKey = getSilhouetteKeyForName(exercise.name);
+
+        selectedSetMap[exercise.name] = chosenSets;
+        totalSets += chosenSets;
+
+        if (chosenSets <= 0) {
+          return;
+        }
+
+        for (let setNumber = 1; setNumber <= chosenSets; setNumber += 1) {
+          segments.push({
+            type: "work",
+            displayName: exercise.name,
+            duration: duration,
+            meta: chosenSets > 1 ? "Set " + setNumber + " of " + chosenSets : "Single timed set",
+            setIndex: setNumber,
+            setTotal: chosenSets,
+            silhouetteKey: silhouetteKey
+          });
+
+          if (setNumber < chosenSets) {
+            segments.push({
+              type: "rest",
+              displayName: "Rest",
+              duration: REST_SECONDS,
+              meta: "Recover before set " + (setNumber + 1),
+              silhouetteKey: silhouetteKey
+            });
+          }
+        }
+      });
+
+      segments.push({
+        type: "stretch",
+        displayName: "Stretch",
+        duration: STRETCH_SECONDS,
+        meta: "Slow cooldown",
+        silhouetteKey: "stretch"
+      });
+
+      return {
+        day: day,
+        totalSeconds: segments.reduce(function (sum, segment) {
+          return sum + segment.duration;
+        }, 0),
+        totalSets: totalSets,
+        isRestDay: false,
+        segments: segments,
+        selectedSetMap: selectedSetMap
+      };
+    }
+
+    function countCompletedWorkSets() {
+      if (!state.schedule || state.schedule.isRestDay) {
+        return 0;
+      }
+
+      if (state.workoutComplete) {
+        return state.schedule.totalSets;
+      }
+
+      let count = 0;
+      for (let i = 0; i < state.activeIndex; i += 1) {
+        if (state.schedule.segments[i].type === "work") {
+          count += 1;
+        }
+      }
+
+      return count;
+    }
+
+    function getCurrentRemainingMs() {
+      if (!state.schedule || state.schedule.isRestDay || state.workoutComplete) {
+        return 0;
+      }
+
+      if (state.isRunning) {
+        return Math.max(0, state.segmentEndTimestamp - Date.now());
+      }
+
+      return Math.max(0, state.segmentRemainingMs);
+    }
+
+    function getTotalRemainingMs() {
+      if (!state.schedule || state.schedule.isRestDay || !state.schedule.segments.length || state.workoutComplete) {
+        return 0;
+      }
+
+      let total = getCurrentRemainingMs();
+
+      for (let i = state.activeIndex + 1; i < state.schedule.segments.length; i += 1) {
+        total += state.schedule.segments[i].duration * 1000;
+      }
+
+      return total;
+    }
+
+    function getNextLabel() {
+      if (!state.schedule || state.schedule.isRestDay) {
+        return "Recovery";
+      }
+
+      if (state.workoutComplete) {
+        return "All done";
+      }
+
+      const nextSegment = state.schedule.segments[state.activeIndex + 1];
+      if (!nextSegment) {
+        return "Finish";
+      }
+
+      if (nextSegment.type === "work" && nextSegment.setTotal > 1) {
+        return nextSegment.displayName + " · Set " + nextSegment.setIndex;
+      }
+
+      return nextSegment.displayName;
+    }
+
+    function updateProgressRing(progress) {
+      const clamped = clamp(progress, 0, 1);
+      const offset = RING_CIRCUMFERENCE * (1 - clamped);
+      elements.progressFill.style.strokeDashoffset = offset;
+      elements.progressGlow.style.strokeDashoffset = offset;
+    }
+
+    function setActiveAccent(accent) {
+      document.documentElement.style.setProperty("--active-accent", accent);
+      elements.progressFill.style.stroke = accent;
+      elements.progressGlow.style.stroke = accent;
+      elements.progressGlow.style.filter = "drop-shadow(0 0 22px " + accent + ")";
+    }
+
+    function setSilhouette(key) {
+      const safeKey = SILHOUETTES[key] ? key : "warmup";
+
+      if (safeKey === state.activeSilhouetteKey) {
+        return;
+      }
+
+      state.activeSilhouetteKey = safeKey;
+
+      const incoming = state.silhouetteSlot === 0 ? elements.silhouetteB : elements.silhouetteA;
+      const outgoing = state.silhouetteSlot === 0 ? elements.silhouetteA : elements.silhouetteB;
+
+      incoming.innerHTML = SILHOUETTES[safeKey];
+      incoming.classList.add("active");
+      outgoing.classList.remove("active");
+
+      state.silhouetteSlot = state.silhouetteSlot === 0 ? 1 : 0;
+    }
+
+    function getSegmentAppearance(segmentType) {
+      return PHASE_STYLES[segmentType] || PHASE_STYLES.work;
+    }
+
+    function switchView(viewName) {
+      state.activeView = viewName;
+
+      elements.tabButtons.forEach(function (button) {
+        button.classList.toggle("active", button.dataset.view === viewName);
+      });
+
+      Object.keys(elements.views).forEach(function (key) {
+        elements.views[key].classList.toggle("active", key === viewName);
+      });
+
+      if (viewName !== "calendar") {
+        closeCalendarPopup();
+      }
+    }
+
+    function renderRestDay() {
+      const appearance = getSegmentAppearance("dayoff");
+      setActiveAccent(appearance.accent);
+      setSilhouette("stretch");
+      updateProgressRing(0);
+
+      elements.phaseChip.textContent = appearance.label;
+      elements.segmentMeta.textContent = "Move lightly and recover";
+      elements.exerciseName.textContent = "Recovery";
+      elements.timeReadout.textContent = "00:00";
+      elements.nextExercise.textContent = "Tomorrow starts fresh";
+      elements.totalRemaining.textContent = "00:00";
+      elements.segmentCount.textContent = "Rest";
+      elements.startPauseBtn.textContent = "Start";
+      elements.startPauseBtn.disabled = true;
+      elements.resetBtn.disabled = true;
+      elements.restMessage.hidden = false;
+    }
+
+    function renderComplete() {
+      const appearance = getSegmentAppearance("complete");
+      setActiveAccent(appearance.accent);
+      setSilhouette("stretch");
+      updateProgressRing(1);
+
+      elements.phaseChip.textContent = appearance.label;
+      elements.segmentMeta.textContent = "Workout finished";
+      elements.exerciseName.textContent = "Nice work";
+      elements.timeReadout.textContent = "00:00";
+      elements.nextExercise.textContent = "Calendar updated";
+      elements.totalRemaining.textContent = "00:00";
+      elements.segmentCount.textContent = state.schedule.segments.length + " / " + state.schedule.segments.length;
+      elements.startPauseBtn.textContent = "Start Again";
+      elements.startPauseBtn.disabled = false;
+      elements.resetBtn.disabled = false;
+      elements.restMessage.hidden = true;
+    }
+
+    function renderActiveSchedule() {
+      const segment = state.schedule.segments[state.activeIndex];
+      const appearance = getSegmentAppearance(segment.type);
+      const currentRemainingMs = getCurrentRemainingMs();
+      const segmentDurationMs = segment.duration * 1000;
+      const progress = segmentDurationMs ? 1 - currentRemainingMs / segmentDurationMs : 1;
+
+      setActiveAccent(appearance.accent);
+      setSilhouette(segment.silhouetteKey);
+      updateProgressRing(progress);
+
+      elements.phaseChip.textContent = appearance.label;
+      elements.segmentMeta.textContent = segment.meta;
+      elements.exerciseName.textContent = segment.displayName;
+      elements.timeReadout.textContent = formatClockFromMs(currentRemainingMs);
+      elements.nextExercise.textContent = getNextLabel();
+      elements.totalRemaining.textContent = formatClockFromMs(getTotalRemainingMs());
+      elements.segmentCount.textContent = String(state.activeIndex + 1) + " / " + String(state.schedule.segments.length);
+      elements.startPauseBtn.textContent = state.isRunning ? "Pause" : state.hasStarted ? "Resume" : "Start";
+      elements.startPauseBtn.disabled = false;
+      elements.resetBtn.disabled = false;
+      elements.restMessage.hidden = true;
+    }
+
+    function renderTimer() {
+      if (!state.schedule) {
+        return;
+      }
+
+      if (state.schedule.isRestDay) {
+        renderRestDay();
+        return;
+      }
+
+      if (state.workoutComplete) {
+        renderComplete();
+        return;
+      }
+
+      renderActiveSchedule();
+    }
+
+    function renderPlanner() {
+      const day = WORKOUT_DAYS[state.selectedDayId];
+      elements.plannerList.innerHTML = "";
+      elements.plannerDayTitle.textContent = day ? day.label : "";
+      elements.plannerTotalTime.textContent = state.schedule ? formatClock(state.schedule.totalSeconds) : "00:00";
+      elements.plannerSegments.textContent = state.schedule ? String(state.schedule.segments.length) : "0";
+
+      if (!day || day.restDay) {
+        elements.plannerList.innerHTML = '<p class="empty-copy">Rest day selected. No exercises to plan.</p>';
+        elements.plannerNote.textContent = "Pick a workout day to adjust sets.";
+        return;
+      }
+
+      day.exercises.forEach(function (exercise) {
+        const row = document.createElement("label");
+        row.className = "planner-row";
+
+        const info = document.createElement("div");
+        const title = document.createElement("strong");
+        const meta = document.createElement("small");
+
+        title.textContent = exercise.name;
+        meta.textContent = describeExercise(exercise) + " · default " + exercise.sets + (exercise.sets === 1 ? " set" : " sets");
+
+        info.appendChild(title);
+        info.appendChild(meta);
+
+        const select = document.createElement("select");
+        select.className = "planner-select";
+        select.setAttribute("aria-label", "Sets for " + exercise.name);
+
+        [
+          { value: 0, label: "Skip" },
+          { value: 1, label: "1 set" },
+          { value: 2, label: "2 sets" },
+          { value: 3, label: "3 sets" }
+        ].forEach(function (optionData) {
+          const option = document.createElement("option");
+          option.value = String(optionData.value);
+          option.textContent = optionData.label;
+          select.appendChild(option);
+        });
+
+        const currentSets = state.schedule ? state.schedule.selectedSetMap[exercise.name] : getSelectedSetsForExercise(state.selectedDayId, exercise);
+        select.value = String(currentSets);
+
+        select.addEventListener("change", function () {
+          updateExerciseSetPreference(state.selectedDayId, exercise.name, Number(select.value));
+          loadDay(state.selectedDayId, { savePartial: true });
+        });
+
+        row.appendChild(info);
+        row.appendChild(select);
+        elements.plannerList.appendChild(row);
+      });
+
+      elements.plannerNote.textContent = "Skip removes an exercise from the timer. Changes update the workout immediately.";
+    }
+
+    function closeCalendarPopup() {
+      state.openCalendarDate = null;
+      elements.calendarPopup.hidden = true;
+    }
+
+    function openCalendarPopup(dateKey) {
+      state.openCalendarDate = dateKey;
+      renderCalendarPopup();
+    }
+
+    function renderCalendarPopup() {
+      if (!state.openCalendarDate) {
+        elements.calendarPopup.hidden = true;
+        return;
+      }
+
+      const summary = state.calendarLookup[state.openCalendarDate];
+      const date = parseDateKey(state.openCalendarDate);
+
+      elements.popupDate.textContent = new Intl.DateTimeFormat(undefined, {
+        weekday: "long",
+        month: "long",
+        day: "numeric",
+        year: "numeric"
+      }).format(date);
+
+      if (!summary || !summary.bestSession) {
+        elements.popupWorkoutDay.textContent = "-";
+        elements.popupMinutes.textContent = "0";
+        elements.popupSets.textContent = "0 / 0";
+        elements.popupStatus.textContent = "No workout logged.";
+        elements.popupExtra.textContent = "";
+        elements.calendarPopup.hidden = false;
+        return;
+      }
+
+      const session = summary.bestSession;
+
+      elements.popupWorkoutDay.textContent = session.dayLabel;
+      elements.popupMinutes.textContent = formatMinutes(session.minutesCompleted) + " min";
+      elements.popupSets.textContent = session.completedSets + " / " + session.totalSets;
+      elements.popupStatus.textContent = session.completed ? "Workout completed fully." : "Workout stopped early.";
+
+      if (summary.sessions.length > 1) {
+        elements.popupExtra.textContent = summary.sessions.length + " sessions logged on this date.";
+      } else {
+        elements.popupExtra.textContent = "";
+      }
+
+      elements.calendarPopup.hidden = false;
+    }
+
+    function renderCalendar() {
+      const today = new Date();
+      const monthStart = new Date(today.getFullYear(), today.getMonth(), 1);
+      const monthEnd = new Date(today.getFullYear(), today.getMonth() + 1, 0);
+      const history = getHistory().filter(function (entry) {
+        const entryDate = parseDateKey(entry.date);
+        return entryDate.getFullYear() === today.getFullYear() && entryDate.getMonth() === today.getMonth();
+      });
+
+      elements.calendarMonthLabel.textContent = new Intl.DateTimeFormat(undefined, {
+        month: "long",
+        year: "numeric"
+      }).format(today);
+
+      const totalCompletedMinutes = history.reduce(function (sum, entry) {
+        const planned = typeof entry.plannedMinutes === "number" ? entry.plannedMinutes : entry.minutesCompleted;
+        return sum + Math.min(entry.minutesCompleted, planned);
+      }, 0);
+
+      const totalPlannedMinutes = history.reduce(function (sum, entry) {
+        return sum + (typeof entry.plannedMinutes === "number" ? entry.plannedMinutes : entry.minutesCompleted);
+      }, 0);
+
+      const completionRate = totalPlannedMinutes ? Math.round((totalCompletedMinutes / totalPlannedMinutes) * 100) : 0;
+      const fullWorkouts = history.filter(function (entry) {
+        return entry.completed;
+      }).length;
+      const totalMinutes = history.reduce(function (sum, entry) {
+        return sum + entry.minutesCompleted;
+      }, 0);
+
+      elements.calendarStats.textContent = fullWorkouts + " workouts · " + formatMinutes(totalMinutes) + " min · " + completionRate + "% complete";
+
+      const grouped = {};
+      history.forEach(function (entry) {
+        if (!grouped[entry.date]) {
+          grouped[entry.date] = {
+            sessions: [],
+            hasFull: false,
+            hasPartial: false,
+            bestSession: null
+          };
+        }
+
+        grouped[entry.date].sessions.push(entry);
+        grouped[entry.date].hasFull = grouped[entry.date].hasFull || entry.completed;
+        grouped[entry.date].hasPartial = grouped[entry.date].hasPartial || !entry.completed;
+      });
+
+      Object.keys(grouped).forEach(function (dateKey) {
+        const summary = grouped[dateKey];
+        let best = summary.sessions[summary.sessions.length - 1];
+
+        for (let i = summary.sessions.length - 1; i >= 0; i -= 1) {
+          if (summary.sessions[i].completed) {
+            best = summary.sessions[i];
+            break;
+          }
+        }
+
+        summary.bestSession = best;
+      });
+
+      state.calendarLookup = grouped;
+      elements.calendarGrid.innerHTML = "";
+
+      const offset = (monthStart.getDay() + 6) % 7;
+      for (let i = 0; i < offset; i += 1) {
+        const spacer = document.createElement("div");
+        spacer.className = "calendar-spacer";
+        elements.calendarGrid.appendChild(spacer);
+      }
+
+      for (let dayNumber = 1; dayNumber <= monthEnd.getDate(); dayNumber += 1) {
+        const cellDate = new Date(today.getFullYear(), today.getMonth(), dayNumber);
+        const dateKey = formatDateKey(cellDate);
+        const summary = grouped[dateKey];
+
+        const cell = document.createElement("div");
+        cell.className = "calendar-day";
+        cell.tabIndex = 0;
+
+        if (dateKey === formatDateKey(today)) {
+          cell.classList.add("is-today");
+        }
+
+        if (state.openCalendarDate === dateKey) {
+          cell.classList.add("is-selected");
+        }
+
+        if (summary) {
+          if (summary.hasFull) {
+            cell.classList.add("has-full");
+          } else if (summary.hasPartial) {
+            cell.classList.add("has-partial");
+          }
+        }
+
+        cell.innerHTML = '<span class="day-number">' + dayNumber + '</span><span class="day-dot"></span>';
+
+        cell.addEventListener("click", function () {
+          openCalendarPopup(dateKey);
+          renderCalendar();
+        });
+
+        cell.addEventListener("keydown", function (event) {
+          if (event.key === "Enter" || event.key === " ") {
+            event.preventDefault();
+            openCalendarPopup(dateKey);
+            renderCalendar();
+          }
+        });
+
+        elements.calendarGrid.appendChild(cell);
+      }
+
+      const totalCells = offset + monthEnd.getDate();
+      const remainder = (7 - (totalCells % 7)) % 7;
+      for (let i = 0; i < remainder; i += 1) {
+        const spacer = document.createElement("div");
+        spacer.className = "calendar-spacer";
+        elements.calendarGrid.appendChild(spacer);
+      }
+
+      renderCalendarPopup();
+    }
+
+    function ensureAudioContext() {
+      if (!state.audioContext) {
+        const AudioCtor = window.AudioContext || window.webkitAudioContext;
+        if (!AudioCtor) {
+          return null;
+        }
+        state.audioContext = new AudioCtor();
+      }
+
+      if (state.audioContext.state === "suspended") {
+        state.audioContext.resume();
+      }
+
+      return state.audioContext;
+    }
+
+    function playTransitionSound() {
+      const audioContext = ensureAudioContext();
+      if (!audioContext) {
+        return;
+      }
+
+      const now = audioContext.currentTime;
+      const output = audioContext.createGain();
+      const filter = audioContext.createBiquadFilter();
+      const oscillatorA = audioContext.createOscillator();
+      const oscillatorB = audioContext.createOscillator();
+
+      output.gain.setValueAtTime(0.0001, now);
+      output.gain.exponentialRampToValueAtTime(0.34, now + 0.05);
+      output.gain.exponentialRampToValueAtTime(0.001, now + 1.05);
+
+      filter.type = "lowpass";
+      filter.frequency.setValueAtTime(900, now);
+      filter.frequency.exponentialRampToValueAtTime(180, now + 1.05);
+      filter.Q.setValueAtTime(7, now);
+
+      oscillatorA.type = "sawtooth";
+      oscillatorA.frequency.setValueAtTime(210, now);
+      oscillatorA.frequency.exponentialRampToValueAtTime(88, now + 1.05);
+
+      oscillatorB.type = "triangle";
+      oscillatorB.frequency.setValueAtTime(105, now);
+      oscillatorB.frequency.exponentialRampToValueAtTime(46, now + 1.05);
+
+      oscillatorA.connect(filter);
+      oscillatorB.connect(filter);
+      filter.connect(output);
+      output.connect(audioContext.destination);
+
+      oscillatorA.start(now);
+      oscillatorB.start(now);
+      oscillatorA.stop(now + 1.05);
+      oscillatorB.stop(now + 1.05);
+    }
+
+    function stopTimerLoop() {
+      if (state.timerHandle) {
+        clearInterval(state.timerHandle);
+        state.timerHandle = null;
+      }
+    }
+
+    function getElapsedWorkoutMs() {
+      if (!state.schedule || state.schedule.isRestDay) {
+        return 0;
+      }
+
+      const plannedMs = state.schedule.totalSeconds * 1000;
+      return Math.max(0, plannedMs - getTotalRemainingMs());
+    }
+
+    function recordSession(completed) {
+      if (!state.schedule || state.schedule.isRestDay || state.sessionSaved || !state.hasStarted) {
+        return;
+      }
+
+      const elapsedMs = completed ? state.schedule.totalSeconds * 1000 : getElapsedWorkoutMs();
+
+      if (!completed && elapsedMs < 5000) {
+        return;
+      }
+
+      const history = getHistory();
+      history.push({
+        id: String(Date.now()) + "-" + Math.random().toString(36).slice(2, 7),
+        date: formatDateKey(new Date()),
+        dayId: state.selectedDayId,
+        dayLabel: state.schedule.day.label,
+        minutesCompleted: Number((elapsedMs / 60000).toFixed(1)),
+        plannedMinutes: Number((state.schedule.totalSeconds / 60).toFixed(1)),
+        completed: Boolean(completed),
+        totalSets: state.schedule.totalSets,
+        completedSets: completed ? state.schedule.totalSets : countCompletedWorkSets(),
+        setConfig: Object.assign({}, state.schedule.selectedSetMap),
+        savedAt: new Date().toISOString()
+      });
+
+      saveHistory(history);
+      state.sessionSaved = true;
+      renderCalendar();
+    }
+
+    function finishWorkout() {
+      stopTimerLoop();
+      state.isRunning = false;
+      state.segmentRemainingMs = 0;
+      state.workoutComplete = true;
+      playTransitionSound();
+      recordSession(true);
+      renderTimer();
+    }
+
+    function handleTimerTick() {
+      if (!state.isRunning || !state.schedule || state.schedule.isRestDay) {
+        return;
+      }
+
+      const now = Date.now();
+      let segmentChanged = false;
+
+      while (state.isRunning && now >= state.segmentEndTimestamp) {
+        if (state.activeIndex >= state.schedule.segments.length - 1) {
+          finishWorkout();
+          return;
+        }
+
+        state.activeIndex += 1;
+        state.segmentEndTimestamp += state.schedule.segments[state.activeIndex].duration * 1000;
+        state.segmentRemainingMs = Math.max(0, state.segmentEndTimestamp - now);
+        segmentChanged = true;
+      }
+
+      if (segmentChanged) {
+        playTransitionSound();
+      }
+
+      state.segmentRemainingMs = Math.max(0, state.segmentEndTimestamp - now);
+      renderTimer();
+    }
+
+    function startWorkout() {
+      if (!state.schedule || state.schedule.isRestDay) {
+        return;
+      }
+
+      if (state.workoutComplete) {
+        resetWorkout(false);
+      }
+
+      if (state.segmentRemainingMs <= 0 && state.schedule.segments[state.activeIndex]) {
+        state.segmentRemainingMs = state.schedule.segments[state.activeIndex].duration * 1000;
+      }
+
+      ensureAudioContext();
+      state.hasStarted = true;
+      state.segmentEndTimestamp = Date.now() + state.segmentRemainingMs;
+      state.isRunning = true;
+
+      stopTimerLoop();
+      state.timerHandle = setInterval(handleTimerTick, 100);
+      renderTimer();
+    }
+
+    function pauseWorkout() {
+      if (!state.isRunning) {
+        return;
+      }
+
+      state.segmentRemainingMs = Math.max(0, state.segmentEndTimestamp - Date.now());
+      state.isRunning = false;
+      stopTimerLoop();
+      renderTimer();
+    }
+
+    function resetWorkout(savePartial) {
+      if (savePartial) {
+        recordSession(false);
+      }
+
+      stopTimerLoop();
+      state.isRunning = false;
+      state.hasStarted = false;
+      state.workoutComplete = false;
+      state.sessionSaved = false;
+      state.activeIndex = 0;
+      state.segmentEndTimestamp = 0;
+      state.segmentRemainingMs = state.schedule && state.schedule.segments[0]
+        ? state.schedule.segments[0].duration * 1000
+        : 0;
+
+      renderTimer();
+    }
+
+    function loadDay(dayId, options) {
+      const opts = options || {};
+
+      if (opts.savePartial) {
+        recordSession(false);
+      }
+
+      state.selectedDayId = WORKOUT_DAYS[dayId] ? dayId : "1";
+      localStorage.setItem(STORAGE_KEYS.selectedDay, state.selectedDayId);
+
+      stopTimerLoop();
+      state.isRunning = false;
+      state.hasStarted = false;
+      state.workoutComplete = false;
+      state.sessionSaved = false;
+      state.activeIndex = 0;
+      state.segmentEndTimestamp = 0;
+      state.schedule = buildSchedule(state.selectedDayId);
+      state.segmentRemainingMs = state.schedule.segments[0]
+        ? state.schedule.segments[0].duration * 1000
+        : 0;
+
+      closeCalendarPopup();
+      elements.daySelect.value = state.selectedDayId;
+      renderPlanner();
+      renderTimer();
+      renderCalendar();
+    }
+
+    function populateDaySelector() {
+      elements.daySelect.innerHTML = "";
+
+      Object.keys(WORKOUT_DAYS).forEach(function (key) {
+        const day = WORKOUT_DAYS[key];
+        const option = document.createElement("option");
+        option.value = day.id;
+        option.textContent = day.label;
+        elements.daySelect.appendChild(option);
+      });
+
+      elements.daySelect.value = WORKOUT_DAYS[state.selectedDayId] ? state.selectedDayId : "1";
+    }
+
+    function bindEvents() {
+      elements.tabButtons.forEach(function (button) {
+        button.addEventListener("click", function () {
+          switchView(button.dataset.view);
+        });
+      });
+
+      elements.daySelect.addEventListener("change", function (event) {
+        loadDay(event.target.value, { savePartial: true });
+      });
+
+      elements.startPauseBtn.addEventListener("click", function () {
+        if (state.schedule && state.schedule.isRestDay) {
+          return;
+        }
+
+        if (state.isRunning) {
+          pauseWorkout();
+        } else {
+          startWorkout();
+        }
+      });
+
+      elements.resetBtn.addEventListener("click", function () {
+        resetWorkout(true);
+      });
+
+      elements.popupCloseBtn.addEventListener("click", function () {
+        closeCalendarPopup();
+        renderCalendar();
+      });
+
+      window.addEventListener("pagehide", function () {
+        recordSession(false);
+      });
+
+      document.addEventListener("visibilitychange", function () {
+        renderTimer();
+      });
+    }
+
+    function init() {
+      if (!WORKOUT_DAYS[state.selectedDayId]) {
+        state.selectedDayId = "1";
+      }
+
+      populateDaySelector();
+      bindEvents();
+      switchView("timer");
+      renderCalendar();
+      loadDay(state.selectedDayId);
+    }
+
+    init();
+  </script>
+<style>
+  #calendarView {
+    grid-template-rows: auto auto minmax(0, 1fr) !important;
+    min-height: 0 !important;
+    overflow: hidden !important;
+  }
+
+  #calendarGrid {
+    height: 100% !important;
+    align-content: stretch !important;
+    grid-auto-rows: calc((100% - 30px) / 6) !important;
+    gap: 6px !important;
+  }
+
+  .calendar-day,
+  .calendar-spacer {
+    aspect-ratio: auto !important;
+    height: auto !important;
+    min-height: 0 !important;
+    border-radius: 12px !important;
+  }
+
+  .calendar-day {
+    padding: 7px !important;
+  }
+
+  .weekdays,
+  #calendarGrid {
+    gap: 7px !important;
+  }
+
+  .weekdays span {
+    font-size: 1rem !important;
+  }
+
+  .day-number {
+    font-size: 1rem !important;
+    line-height: 1 !important;
+  }
+
+  .day-dot {
+    width: 10px !important;
+    height: 10px !important;
+  }
+</style>
+
+</body>
+</html>
