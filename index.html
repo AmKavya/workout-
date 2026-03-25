@@ -1242,7 +1242,7 @@
     }
 
     function formatClock(totalSeconds) {
-      const safeSeconds = Math.max(0, Math.round(totalSeconds));
+      const safeSeconds = Math.max(0, Math.ceil(totalSeconds));
       const minutes = Math.floor(safeSeconds / 60);
       const seconds = safeSeconds % 60;
       return String(minutes).padStart(2, "0") + ":" + String(seconds).padStart(2, "0");
@@ -1343,87 +1343,111 @@
       return "warmup";
     }
 
-    function buildSchedule(dayId) {
-      const day = WORKOUT_DAYS[dayId];
+  
+ function buildSchedule(dayId) {
+  const day = WORKOUT_DAYS[dayId];
 
-      if (!day || day.restDay) {
-        return {
-          day: day,
-          totalSeconds: 0,
-          totalSets: 0,
-          isRestDay: true,
-          segments: [],
-          selectedSetMap: {}
-        };
-      }
+  if (!day || day.restDay) {
+    return {
+      day: day,
+      totalSeconds: 0,
+      totalSets: 0,
+      isRestDay: true,
+      segments: [],
+      selectedSetMap: {}
+    };
+  }
 
-      const segments = [
-        {
-          type: "warmup",
-          displayName: "Warmup",
-          duration: WARMUP_SECONDS,
-          meta: "Wake up the body",
-          silhouetteKey: "warmup"
-        }
-      ];
+  const segments = [
+    {
+      type: "warmup",
+      displayName: "Warmup",
+      duration: WARMUP_SECONDS,
+      meta: "Wake up the body",
+      silhouetteKey: "warmup"
+    }
+  ];
 
-      const selectedSetMap = {};
-      let totalSets = 0;
+  const selectedSetMap = {};
+  let totalSets = 0;
 
-      day.exercises.forEach(function (exercise) {
-        const chosenSets = getSelectedSetsForExercise(dayId, exercise);
-        const duration = getExerciseDuration(exercise);
-        const silhouetteKey = getSilhouetteKeyForName(exercise.name);
-
-        selectedSetMap[exercise.name] = chosenSets;
-        totalSets += chosenSets;
-
-        if (chosenSets <= 0) {
-          return;
-        }
-
-        for (let setNumber = 1; setNumber <= chosenSets; setNumber += 1) {
-          segments.push({
-            type: "work",
-            displayName: exercise.name,
-            duration: duration,
-            meta: chosenSets > 1 ? "Set " + setNumber + " of " + chosenSets : "Single timed set",
-            setIndex: setNumber,
-            setTotal: chosenSets,
-            silhouetteKey: silhouetteKey
-          });
-
-          if (setNumber < chosenSets) {
-            segments.push({
-              type: "rest",
-              displayName: "Rest",
-              duration: REST_SECONDS,
-              meta: "Recover before set " + (setNumber + 1),
-              silhouetteKey: silhouetteKey
-            });
-          }
-        }
-      });
-
-      segments.push({
-        type: "stretch",
-        displayName: "Stretch",
-        duration: STRETCH_SECONDS,
-        meta: "Slow cooldown",
-        silhouetteKey: "stretch"
-      });
+  const activeExercises = day.exercises
+    .map(function (exercise) {
+      const chosenSets = getSelectedSetsForExercise(dayId, exercise);
+      selectedSetMap[exercise.name] = chosenSets;
+      totalSets += chosenSets;
 
       return {
-        day: day,
-        totalSeconds: segments.reduce(function (sum, segment) {
-          return sum + segment.duration;
-        }, 0),
-        totalSets: totalSets,
-        isRestDay: false,
-        segments: segments,
-        selectedSetMap: selectedSetMap
+        exercise: exercise,
+        chosenSets: chosenSets
       };
+    })
+    .filter(function (item) {
+      return item.chosenSets > 0;
+    });
+
+  activeExercises.forEach(function (item, exerciseIndex) {
+    const exercise = item.exercise;
+    const chosenSets = item.chosenSets;
+    const duration = getExerciseDuration(exercise);
+    const silhouetteKey = getSilhouetteKeyForName(exercise.name);
+
+    for (let setNumber = 1; setNumber <= chosenSets; setNumber += 1) {
+      segments.push({
+        type: "work",
+        displayName: exercise.name,
+        duration: duration,
+        meta: chosenSets > 1 ? "Set " + setNumber + " of " + chosenSets : "Single timed set",
+        setIndex: setNumber,
+        setTotal: chosenSets,
+        silhouetteKey: silhouetteKey
+      });
+
+      if (setNumber < chosenSets) {
+        segments.push({
+          type: "rest",
+          displayName: "Rest",
+          duration: REST_SECONDS,
+          meta: "Recover before set " + (setNumber + 1),
+          silhouetteKey: silhouetteKey
+        });
+      }
     }
+
+    const nextLabel = exerciseIndex < activeExercises.length - 1
+      ? activeExercises[exerciseIndex + 1].exercise.name
+      : "Stretch";
+
+    segments.push({
+      type: "rest",
+      displayName: "Rest",
+      duration: REST_SECONDS,
+      meta: "Recover before " + nextLabel,
+      silhouetteKey: silhouetteKey
+    });
+  });
+
+  segments.push({
+    type: "stretch",
+    displayName: "Stretch",
+    duration: STRETCH_SECONDS,
+    meta: "Slow cooldown",
+    silhouetteKey: "stretch"
+  });
+
+  return {
+    day: day,
+    totalSeconds: segments.reduce(function (sum, segment) {
+      return sum + segment.duration;
+    }, 0),
+    totalSets: totalSets,
+    isRestDay: false,
+    segments: segments,
+    selectedSetMap: selectedSetMap
+  };
+}
+
+
 
     function countCompletedWorkSets() {
       if (!state.schedule || state.schedule.isRestDay) {
